@@ -202,11 +202,13 @@ class FormManager {
     bar.innerHTML = `<span>Editing: <strong>${label}</strong></span>`;
 
     const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
     saveBtn.className = 'save-return-btn';
     saveBtn.textContent = 'Save & Return to Summary';
     bar.appendChild(saveBtn);
 
     const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
     cancelBtn.className = 'cancel-edit-btn';
     cancelBtn.textContent = 'Cancel';
     bar.appendChild(cancelBtn);
@@ -233,8 +235,9 @@ class FormManager {
       }
     };
 
-    saveBtn.addEventListener('click', onComplete);
-    cancelBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', (e) => { e.preventDefault(); onComplete(); });
+    cancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       console.log(`Edit canceled for field "${field.name}"`);
       this._removeEditBar();
       this._navigateToSummary();
@@ -299,7 +302,7 @@ class FormManager {
 document.addEventListener('DOMContentLoaded', () => {
   // No-op: listeners attached per FormManager instance
 });
-
+FormManager; 
 
 // ---- core/Navigation.js ----
 class Navigation {
@@ -427,7 +430,7 @@ class Navigation {
     }, 500);
   }
 }
-
+Navigation; 
 
 // ---- core/StepManager.js ----
 class StepManager {
@@ -522,7 +525,7 @@ class StepManager {
     }
   }
 }
-
+StepManager; 
 
 // ---- core/Validation.js ----
 class Validation {
@@ -610,7 +613,7 @@ class Validation {
     stepElement.querySelectorAll('.error-message').forEach(el => el.remove());
   }
 }
-
+Validation; 
 
 // ---- features/ConditionalLogic.js ----
 class ConditionalLogic {
@@ -638,7 +641,7 @@ class ConditionalLogic {
     });
   }
 }
-
+ConditionalLogic; 
 
 // ---- features/Memory.js ----
 class Memory {
@@ -863,7 +866,7 @@ class Memory {
     }
   }
 }
-
+Memory; 
 
 // ---- features/Summary.js ----
 class Summary {
@@ -1029,7 +1032,7 @@ class Summary {
     return fieldName;
   }
 }
-
+Summary; 
 
 // ---- index.js ----
 
@@ -1058,10 +1061,10 @@ if (typeof document !== 'undefined') {
 /**
  * Utilities to highlight a field being edited.
  */
-
+function clearHighlight(root = document) {
   root.querySelectorAll('.field-editing').forEach(el => el.classList.remove('field-editing'));
 }
-
+function highlightField(field, offset = 100) {
   if (!field) return;
   clearHighlight(field.ownerDocument);
   field.classList.add('field-editing');

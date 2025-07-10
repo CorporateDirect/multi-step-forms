@@ -24,14 +24,44 @@ let bundle = '';
 files.forEach(file => {
   let code = fs.readFileSync(file, 'utf8');
   // Remove simple import/export lines (very simplistic)
-  code = code.replace(/^\s*import .*?;$/gm, '')
-             .replace(/^\s*export .*?$/gm, '')
-             .replace(/^\s*export default /gm, '');
+  code = code
+    // strip ES module imports
+    .replace(/^\s*import .*?;$/gm, '')
+    // transform various export forms into vanilla declarations
+    .replace(/^\s*export default /gm, '')
+    .replace(/^\s*export\s+function\s+/gm, 'function ') // export function foo -> function foo
+    .replace(/^\s*export\s+class\s+/gm, 'class ')       // export class Foo -> class Foo
+    .replace(/^\s*export\s+const\s+/gm, 'const ')       // export const BAR = -> const BAR =
+    .replace(/^\s*export\s+let\s+/gm, 'let ')
+    .replace(/^\s*export\s+var\s+/gm, 'var ');
   bundle += `\n// ---- ${path.relative(srcDir, file)} ----\n` + code + '\n';
 });
 
 const wrapped = `(function(){\n${bundle}\n})();`;
 
-if (!fs.existsSync(distDir)) fs.mkdirSync(distDir);
-fs.writeFileSync(outFile, wrapped, 'utf8');
-console.log('Built', outFile); 
+// Async wrapper to handle terser promise-based API
+(async () => {
+  let minified = null;
+  try {
+    const terser = require('terser');
+    const result = await terser.minify(wrapped, {
+      ecma: 2020,
+      format: { comments: false }
+    });
+    if (result.code) {
+      minified = result.code;
+    }
+  } catch (e) {
+    console.warn('Terser not available or minification failed:', e && e.message ? e.message : e);
+  }
+
+  if (!fs.existsSync(distDir)) fs.mkdirSync(distDir);
+  fs.writeFileSync(outFile, wrapped, 'utf8');
+  console.log('Built', outFile);
+
+  if (minified) {
+    const minFile = path.join(distDir, 'multi-step.min.js');
+    fs.writeFileSync(minFile, minified, 'utf8');
+    console.log('Minified build', minFile);
+  }
+})(); 
