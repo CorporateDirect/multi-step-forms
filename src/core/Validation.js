@@ -13,6 +13,10 @@ class Validation {
    */
   validateStep(stepElement) {
     if (!stepElement) return true;
+    // Allow purely informational steps to bypass validation
+    if (stepElement.hasAttribute('data-form-no-input')) {
+      return true;
+    }
     this.clearErrors(stepElement);
 
     let valid = true;

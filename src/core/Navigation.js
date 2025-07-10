@@ -70,6 +70,32 @@ class Navigation {
         this.handlePrevious();
       }
     });
+
+    // Delegate clicks on elements that use data-form="next-btn" or "back-btn"
+    this.form.addEventListener('click', (e) => {
+      const el = /** @type {HTMLElement} */ (e.target).closest('[data-form]');
+      if (!el) return;
+      const attr = el.getAttribute('data-form');
+      if (attr === 'next-btn') {
+        e.preventDefault();
+        this.handleNext();
+      } else if (attr === 'back-btn') {
+        e.preventDefault();
+        this.handlePrevious();
+      }
+
+      // Skip-to support
+      const skipTo = el.getAttribute('data-skip-to');
+      if (skipTo) {
+        e.preventDefault();
+        const idx = this.stepManager.steps.findIndex(s => (s.element.id === skipTo) || (s.element.dataset.stepName === skipTo));
+        if (idx >= 0) {
+          this.currentIndex = idx;
+          this.stepManager.showStep(idx);
+          this.updateButtonVisibility();
+        }
+      }
+    });
   }
 
   /**

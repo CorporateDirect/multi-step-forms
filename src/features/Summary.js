@@ -24,7 +24,15 @@ class Summary {
       if (!entry.isVisible) return; // only include visible fields
       const stepIndex = entry.stepIndex ?? -1;
       const stepObj = this.stepManager.steps[stepIndex];
-      const stepName = stepObj ? (stepObj.element.querySelector('h2,h3')?.textContent?.trim() || `Step ${stepIndex + 1}`) : `Step ${stepIndex + 1}`;
+      let stepName = `Step ${stepIndex + 1}`;
+      if (stepObj) {
+        if (stepObj.element.dataset.stepName) {
+          stepName = stepObj.element.dataset.stepName;
+        } else {
+          const heading = stepObj.element.querySelector('h2,h3');
+          if (heading && heading.textContent) stepName = heading.textContent.trim();
+        }
+      }
 
       // Find group or create
       let group = groups.find(g => g.index === stepIndex);
@@ -137,9 +145,10 @@ class Summary {
   }
 
   _getFieldLabel(fieldName) {
-    // Try to find label element with for attribute
+    // Custom override
     const fieldEl = this.stepManager.root.querySelector(`[name="${fieldName}"]`);
     if (fieldEl) {
+      if (fieldEl.dataset.label) return fieldEl.dataset.label;
       // Check placeholder
       if (fieldEl.placeholder) return fieldEl.placeholder;
       // Check closest label wrapper

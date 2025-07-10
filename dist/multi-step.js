@@ -295,6 +295,8 @@ class FormManager {
     this.form.addEventListener('submit', () => {
       clearHighlight(this.form);
     });
+
+    // (navigation click handling moved to Navigation.js)
   }
 }
 
@@ -375,6 +377,32 @@ class Navigation {
       if (this.currentIndex > 0) {
         e.preventDefault();
         this.handlePrevious();
+      }
+    });
+
+    // Delegate clicks on elements that use data-form="next-btn" or "back-btn"
+    this.form.addEventListener('click', (e) => {
+      const el = /** @type {HTMLElement} */ (e.target).closest('[data-form]');
+      if (!el) return;
+      const attr = el.getAttribute('data-form');
+      if (attr === 'next-btn') {
+        e.preventDefault();
+        this.handleNext();
+      } else if (attr === 'back-btn') {
+        e.preventDefault();
+        this.handlePrevious();
+      }
+
+      // Skip-to support
+      const skipTo = el.getAttribute('data-skip-to');
+      if (skipTo) {
+        e.preventDefault();
+        const idx = this.stepManager.steps.findIndex(s => (s.element.id === skipTo) || (s.element.dataset.stepName === skipTo));
+        if (idx >= 0) {
+          this.currentIndex = idx;
+          this.stepManager.showStep(idx);
+          this.updateButtonVisibility();
+        }
       }
     });
   }
@@ -543,6 +571,10 @@ class Validation {
    */
   validateStep(stepElement) {
     if (!stepElement) return true;
+    // Allow purely informational steps to bypass validation
+    if (stepElement.hasAttribute('data-form-no-input')) {
+      return true;
+    }
     this.clearErrors(stepElement);
 
     let valid = true;
@@ -895,7 +927,15 @@ class Summary {
       if (!entry.isVisible) return; // only include visible fields
       const stepIndex = entry.stepIndex ?? -1;
       const stepObj = this.stepManager.steps[stepIndex];
-      const stepName = stepObj ? (stepObj.element.querySelector('h2,h3')?.textContent?.trim() || `Step ${stepIndex + 1}`) : `Step ${stepIndex + 1}`;
+      let stepName = `Step ${stepIndex + 1}`;
+      if (stepObj) {
+        if (stepObj.element.dataset.stepName) {
+          stepName = stepObj.element.dataset.stepName;
+        } else {
+          const heading = stepObj.element.querySelector('h2,h3');
+          if (heading && heading.textContent) stepName = heading.textContent.trim();
+        }
+      }
 
       // Find group or create
       let group = groups.find(g => g.index === stepIndex);
@@ -1008,9 +1048,10 @@ class Summary {
   }
 
   _getFieldLabel(fieldName) {
-    // Try to find label element with for attribute
+    // Custom override
     const fieldEl = this.stepManager.root.querySelector(`[name="${fieldName}"]`);
     if (fieldEl) {
+      if (fieldEl.dataset.label) return fieldEl.dataset.label;
       // Check placeholder
       if (fieldEl.placeholder) return fieldEl.placeholder;
       // Check closest label wrapper
@@ -1044,6 +1085,8 @@ if (typeof document !== 'undefined') {
     const forms = document.querySelectorAll('[data-form="multistep"]');
     forms.forEach(form => {
       const manager = new FormManager(form);
+      // Expose for custom integrations/debugging
+      form.__formManager = manager;
       manager.init();
 
       console.log('FormManager initialized:', manager);

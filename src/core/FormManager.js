@@ -292,6 +292,8 @@ class FormManager {
     this.form.addEventListener('submit', () => {
       clearHighlight(this.form);
     });
+
+    // (navigation click handling moved to Navigation.js)
   }
 }
 

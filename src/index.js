@@ -7,6 +7,8 @@ if (typeof document !== 'undefined') {
     const forms = document.querySelectorAll('[data-form="multistep"]');
     forms.forEach(form => {
       const manager = new FormManager(form);
+      // Expose for custom integrations/debugging
+      form.__formManager = manager;
       manager.init();
 
       console.log('FormManager initialized:', manager);
