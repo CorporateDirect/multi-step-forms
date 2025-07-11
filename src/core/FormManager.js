@@ -1,6 +1,5 @@
 import StepManager from './StepManager.js';
 import Navigation from './Navigation.js';
-import ConditionalLogic from '../features/ConditionalLogic.js';
 import Memory from '../features/Memory.js';
 import Summary from '../features/Summary.js';
 import Validation from './Validation.js';
@@ -24,9 +23,6 @@ class FormManager {
 
     this.stepManager = new StepManager(this.form);
     this.navigation = new Navigation(this.stepManager);
-
-    // Conditional logic setup
-    this.conditionalLogic = new ConditionalLogic(this.stepManager);
 
     // Autosave memory feature
     this.memory = new Memory(this.form, this.stepManager);
@@ -146,7 +142,53 @@ class FormManager {
 
   /** Advance to the next step */
   nextStep() {
-    console.log('FormManager: nextStep() called');
+    const currentStepEl = this.stepManager.steps[this.currentStep].element;
+    const wrapper = currentStepEl.querySelector('.step_wrapper');
+
+    if (!wrapper) {
+      console.error('Could not find .step_wrapper in the current step. Navigation halted.');
+      return;
+    }
+
+    const isBranchingStep = wrapper.getAttribute('data-branch') === 'true';
+    let targetAnswer = null;
+
+    if (isBranchingStep) {
+      // This is a branching step. A radio choice is required.
+      const conditionalChoice = wrapper.querySelector('input[type="radio"][data-go-to]:checked');
+      if (conditionalChoice) {
+        targetAnswer = conditionalChoice.getAttribute('data-go-to');
+        console.log(`Branching navigation triggered. Target: ${targetAnswer}`);
+      } else {
+        // No choice made on a mandatory branching step.
+        console.warn('Branching step: No radio button selected. Navigation halted.');
+        if (this.navigation.triggerErrorShake) this.navigation.triggerErrorShake();
+        return;
+      }
+    } else {
+      // This is a sequential step. Look for its target on the wrapper itself.
+      if (wrapper.hasAttribute('data-go-to')) {
+        targetAnswer = wrapper.getAttribute('data-go-to');
+        console.log(`Sequential navigation triggered. Target: ${targetAnswer}`);
+      }
+    }
+
+    // If a target was determined, find and navigate to it.
+    if (targetAnswer) {
+      const targetStepIndex = this.stepManager.steps.findIndex(
+        step => step.element.querySelector(`[data-answer="${targetAnswer}"]`)
+      );
+
+      if (targetStepIndex > -1) {
+        this.goToStep(targetStepIndex);
+      } else {
+        console.error(`Navigation failed: Could not find any step containing [data-answer="${targetAnswer}"]`);
+      }
+      return;
+    }
+
+    // Fallback for sequential steps that have no explicit target.
+    console.log('Fallback navigation: Advancing to next step in DOM order.');
     this.goToStep(this.currentStep + 1);
   }
 
