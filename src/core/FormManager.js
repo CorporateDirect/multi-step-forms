@@ -92,6 +92,12 @@ class FormManager {
    */
   init() {
     this.stepManager.discoverSteps();
+    
+    // Validate all steps for structure compatibility on initialization
+    this.stepManager.steps.forEach((step, index) => {
+      this._validateStructureCompatibility(step.element);
+    });
+    
     this.goToStep(0);
   }
 
@@ -143,19 +149,26 @@ class FormManager {
   /** Advance to the next step */
   nextStep() {
     const currentStepEl = this.stepManager.steps[this.currentStep].element;
-    const wrapper = currentStepEl.querySelector('.step_wrapper');
+    
+    // Validate structure compatibility and show helpful warnings
+    this._validateStructureCompatibility(currentStepEl);
+    
+    // Enhanced wrapper search with graceful fallbacks
+    const wrapper = this._findWrapperGraceful(currentStepEl);
 
     if (!wrapper) {
-      console.error('Could not find .step_wrapper in the current step. Navigation halted.');
+      console.error('Could not find any wrapper element in the current step. Navigation halted.');
       return;
     }
 
-    const isBranchingStep = wrapper.getAttribute('data-branch') === 'true';
+    // Enhanced branching detection: check for data-branch="true" at multiple levels
+    const isBranchingStep = this._detectBranchingStep(currentStepEl, wrapper);
     let targetAnswer = null;
 
     if (isBranchingStep) {
       // This is a branching step. A radio choice is required.
-      const conditionalChoice = wrapper.querySelector('input[type="radio"][data-go-to]:checked');
+      // Enhanced radio search: look within the entire current step DOM tree
+      const conditionalChoice = this._findCheckedRadioWithGoTo(currentStepEl);
       if (conditionalChoice) {
         targetAnswer = conditionalChoice.getAttribute('data-go-to');
         console.log(`Branching navigation triggered. Target: ${targetAnswer}`);
@@ -166,20 +179,24 @@ class FormManager {
         return;
       }
     } else {
-      // This is a sequential step. Look for its target on the wrapper itself.
-      if (wrapper.hasAttribute('data-go-to')) {
-        targetAnswer = wrapper.getAttribute('data-go-to');
+      // This is a sequential step. Look for its target on the wrapper itself or nested elements.
+      targetAnswer = this._findSequentialTarget(wrapper, currentStepEl);
+      if (targetAnswer) {
         console.log(`Sequential navigation triggered. Target: ${targetAnswer}`);
       }
     }
 
     // If a target was determined, find and navigate to it.
     if (targetAnswer) {
-      const targetStepIndex = this.stepManager.steps.findIndex(
-        step => step.element.querySelector(`[data-answer="${targetAnswer}"]`)
-      );
+      const targetStepIndex = this.stepManager.steps.findIndex(step => {
+        // Use graceful fallback to find the answer element
+        const answerElement = this._findAnswerElementGraceful(step.element, targetAnswer);
+        return answerElement !== null;
+      });
 
       if (targetStepIndex > -1) {
+        // Store the selected answer for proper wrapper display
+        this.stepManager.selectedAnswer = targetAnswer;
         this.goToStep(targetStepIndex);
       } else {
         console.error(`Navigation failed: Could not find any step containing [data-answer="${targetAnswer}"]`);
@@ -315,6 +332,183 @@ class FormManager {
   _navigateToSummary() {
     const reviewStep = this.summary ? this.summary.stepManager.steps.length - 1 : this.stepManager.steps.length - 1;
     this.goToStep(reviewStep);
+  }
+
+  /**
+   * Enhanced branching detection: checks for data-branch="true" at multiple levels
+   * @param {HTMLElement} currentStepEl - The current step element
+   * @param {HTMLElement} wrapper - The step wrapper element
+   * @returns {boolean} - Whether this is a branching step
+   */
+  _detectBranchingStep(currentStepEl, wrapper) {
+    // Check wrapper itself first
+    if (wrapper.getAttribute('data-branch') === 'true') {
+      return true;
+    }
+    
+    // Check for any element with data-branch="true" within the current step
+    const branchingElement = currentStepEl.querySelector('[data-branch="true"]');
+    return branchingElement !== null;
+  }
+
+  /**
+   * Enhanced radio search: finds checked radio with data-go-to within entire step DOM tree
+   * @param {HTMLElement} currentStepEl - The current step element
+   * @returns {HTMLElement|null} - The checked radio element or null
+   */
+  _findCheckedRadioWithGoTo(currentStepEl) {
+    // Use graceful fallback for radio search with backward compatibility
+    return this._findRadioGraceful(currentStepEl);
+  }
+
+  /**
+   * Enhanced sequential target detection: finds data-go-to at wrapper or nested levels
+   * @param {HTMLElement} wrapper - The step wrapper element
+   * @param {HTMLElement} currentStepEl - The current step element
+   * @returns {string|null} - The target answer or null
+   */
+  _findSequentialTarget(wrapper, currentStepEl) {
+    // First check the wrapper itself
+    if (wrapper.hasAttribute('data-go-to')) {
+      return wrapper.getAttribute('data-go-to');
+    }
+    
+    // Then check for any nested element with data-go-to (like step_items)
+    const targetElement = currentStepEl.querySelector('[data-go-to]');
+    if (targetElement) {
+      return targetElement.getAttribute('data-go-to');
+    }
+    
+    return null;
+  }
+
+  /**
+   * BACKWARD COMPATIBILITY LAYER
+   * These methods ensure existing simple forms continue to work without modification
+   */
+
+  /**
+   * Detects the structure type of a step (simple vs nested)
+   * @param {HTMLElement} stepElement - The step element to analyze
+   * @returns {string} - 'simple' | 'nested' | 'mixed'
+   */
+  _detectStructureType(stepElement) {
+    const wrapperWithAnswer = stepElement.querySelector('.step_wrapper[data-answer]');
+    const nestedItems = stepElement.querySelectorAll('.step_item[data-answer]');
+    
+    if (wrapperWithAnswer && nestedItems.length > 0) {
+      return 'mixed';
+    } else if (nestedItems.length > 0) {
+      return 'nested';
+    } else if (wrapperWithAnswer) {
+      return 'simple';
+    }
+    
+    return 'simple'; // fallback to simple structure
+  }
+
+  /**
+   * Graceful fallback for wrapper search - works with any structure type
+   * @param {HTMLElement} stepElement - The step element to search within
+   * @returns {HTMLElement|null} - The wrapper element or null
+   */
+  _findWrapperGraceful(stepElement) {
+    // Primary search: look for .step_wrapper
+    let wrapper = stepElement.querySelector('.step_wrapper');
+    
+    if (!wrapper) {
+      // Fallback 1: look for any element with data-answer (legacy support)
+      wrapper = stepElement.querySelector('[data-answer]');
+      if (wrapper) {
+        console.warn('FormManager: Using fallback wrapper detection. Consider updating to .step_wrapper structure.');
+      }
+    }
+    
+    if (!wrapper) {
+      // Fallback 2: use the step element itself as wrapper (very legacy)
+      wrapper = stepElement;
+      console.warn('FormManager: No .step_wrapper found, using step element as wrapper. This is deprecated.');
+    }
+    
+    return wrapper;
+  }
+
+  /**
+   * Graceful fallback for finding data-answer elements
+   * @param {HTMLElement} stepElement - The step element to search within
+   * @param {string} targetAnswer - The answer value to find
+   * @returns {HTMLElement|null} - The element with matching data-answer
+   */
+  _findAnswerElementGraceful(stepElement, targetAnswer) {
+    // Primary search: comprehensive search at any level
+    let answerElement = stepElement.querySelector(`[data-answer="${targetAnswer}"]`);
+    
+    if (!answerElement) {
+      // Fallback: case-insensitive search (legacy support)
+      const allAnswerElements = stepElement.querySelectorAll('[data-answer]');
+      answerElement = Array.from(allAnswerElements).find(el => 
+        el.getAttribute('data-answer').toLowerCase() === targetAnswer.toLowerCase()
+      );
+      
+      if (answerElement) {
+        console.warn(`FormManager: Found answer element using case-insensitive search. Consider using exact case: "${targetAnswer}"`);
+      }
+    }
+    
+    return answerElement;
+  }
+
+  /**
+   * Graceful fallback for radio button search
+   * @param {HTMLElement} stepElement - The step element to search within
+   * @returns {HTMLElement|null} - The checked radio with data-go-to
+   */
+  _findRadioGraceful(stepElement) {
+    // Primary search: look for radio with data-go-to
+    let radio = stepElement.querySelector('input[type="radio"][data-go-to]:checked');
+    
+    if (!radio) {
+      // Fallback: look for any checked radio and warn about missing data-go-to
+      radio = stepElement.querySelector('input[type="radio"]:checked');
+      if (radio && !radio.hasAttribute('data-go-to')) {
+        console.warn('FormManager: Found checked radio without data-go-to attribute. Branching may not work correctly.');
+        return null;
+      }
+    }
+    
+    return radio;
+  }
+
+  /**
+   * Validates structure compatibility and provides helpful warnings
+   * @param {HTMLElement} stepElement - The step element to validate
+   */
+  _validateStructureCompatibility(stepElement) {
+    const structureType = this._detectStructureType(stepElement);
+    const stepIndex = Array.from(this.stepManager.steps).findIndex(step => step.element === stepElement);
+    
+    switch (structureType) {
+      case 'simple':
+        // No warnings needed - this is the standard simple structure
+        break;
+        
+      case 'nested':
+        // This is the enhanced nested structure - all good
+        break;
+        
+      case 'mixed':
+        console.warn(`FormManager: Step ${stepIndex} has mixed structure (both .step_wrapper[data-answer] and .step_item[data-answer]). This may cause unexpected behavior.`);
+        break;
+        
+      default:
+        console.warn(`FormManager: Step ${stepIndex} has unusual structure. Consider using .step_wrapper containers.`);
+    }
+    
+    // Check for deprecated patterns
+    const legacyElements = stepElement.querySelectorAll('[data-target], [data-next]');
+    if (legacyElements.length > 0) {
+      console.warn(`FormManager: Step ${stepIndex} contains deprecated attributes (data-target, data-next). Consider migrating to data-go-to and data-answer.`);
+    }
   }
 
   // Attach global listeners once
