@@ -110,7 +110,8 @@ class FormManager {
     const total = this.stepManager.steps.length;
     if (index < 0 || index >= total) return;
 
-    console.log(`FormManager: navigating from step ${this.currentStep} to step ${index}`);
+    console.log(`🚀 [FormManager] STEP PROGRESSION: ${this.currentStep} → ${index}`);
+    console.log(`📋 [FormManager] Navigation history: [${this.history.join(' → ')}] → ${index}`);
 
     this.currentStep = index;
     // Avoid recording duplicates
@@ -165,16 +166,19 @@ class FormManager {
     const isBranchingStep = this._detectBranchingStep(currentStepEl, wrapper);
     let targetAnswer = null;
 
+    console.log(`🔍 [FormManager] Navigation analysis for step ${this.currentStep}:`);
+    console.log(`🔍 [FormManager] Is branching step: ${isBranchingStep}`);
+    
     if (isBranchingStep) {
       // This is a branching step. A radio choice is required.
       // Enhanced radio search: look within the entire current step DOM tree
       const conditionalChoice = this._findCheckedRadioWithGoTo(currentStepEl);
       if (conditionalChoice) {
         targetAnswer = conditionalChoice.getAttribute('data-go-to');
-        console.log(`Branching navigation triggered. Target: ${targetAnswer}`);
+        console.log(`🔥 [FormManager] Branching navigation triggered. data-go-to: "${targetAnswer}"`);
       } else {
         // No choice made on a mandatory branching step.
-        console.warn('Branching step: No radio button selected. Navigation halted.');
+        console.warn('⚠️ [FormManager] Branching step: No radio button selected. Navigation halted.');
         if (this.navigation.triggerErrorShake) this.navigation.triggerErrorShake();
         return;
       }
@@ -182,36 +186,43 @@ class FormManager {
       // This is a sequential step. Look for its target on the wrapper itself or nested elements.
       targetAnswer = this._findSequentialTarget(wrapper, currentStepEl);
       if (targetAnswer) {
-        console.log(`Sequential navigation triggered. Target: ${targetAnswer}`);
+        console.log(`➡️ [FormManager] Sequential navigation triggered. data-go-to: "${targetAnswer}"`);
       }
     }
 
     // If a target was determined, find and navigate to it.
     if (targetAnswer) {
-      const targetStepIndex = this.stepManager.steps.findIndex(step => {
+      console.log(`🎯 [FormManager] Searching for target step with data-answer="${targetAnswer}"`);
+      
+      const targetStepIndex = this.stepManager.steps.findIndex((step, stepIndex) => {
         // Use graceful fallback to find the answer element
         const answerElement = this._findAnswerElementGraceful(step.element, targetAnswer);
-        return answerElement !== null;
+        const found = answerElement !== null;
+        console.log(`🔍 [FormManager]   Step ${stepIndex}: ${found ? '✅ CONTAINS' : '❌ does not contain'} data-answer="${targetAnswer}"`);
+        return found;
       });
 
       if (targetStepIndex > -1) {
         // Store the selected answer for proper wrapper display
         this.stepManager.selectedAnswer = targetAnswer;
+        console.log(`🎉 [FormManager] SUCCESS! data-go-to="${targetAnswer}" successfully targets data-answer="${targetAnswer}" in step ${targetStepIndex}`);
+        alert(`🎉 Navigation Success!\n\ndata-go-to="${targetAnswer}" successfully found target data-answer="${targetAnswer}" in step ${targetStepIndex}`);
         this.goToStep(targetStepIndex);
       } else {
-        console.error(`Navigation failed: Could not find any step containing [data-answer="${targetAnswer}"]`);
+        console.error(`❌ [FormManager] Navigation failed: Could not find any step containing [data-answer="${targetAnswer}"]`);
+        alert(`❌ Navigation Error!\n\ndata-go-to="${targetAnswer}" could not find matching data-answer="${targetAnswer}" in any step`);
       }
       return;
     }
 
     // Fallback for sequential steps that have no explicit target.
-    console.log('Fallback navigation: Advancing to next step in DOM order.');
+    console.log('🔄 [FormManager] Fallback navigation: Advancing to next step in DOM order.');
     this.goToStep(this.currentStep + 1);
   }
 
   /** Go back to the previous step */
   previousStep() {
-    console.log('FormManager: previousStep() called');
+    console.log(`⬅️ [FormManager] Going back from step ${this.currentStep} to step ${this.currentStep - 1}`);
     this.goToStep(this.currentStep - 1);
   }
 

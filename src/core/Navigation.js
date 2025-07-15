@@ -85,10 +85,13 @@ class Navigation {
       }
 
       // Skip-to support
-      const skipTo = el.getAttribute('data-skip-to');
+      const skipTo = el.getAttribute('data-skip');
       if (skipTo) {
         e.preventDefault();
-        const idx = this.stepManager.steps.findIndex(s => (s.element.id === skipTo) || (s.element.dataset.stepName === skipTo));
+        const idx = this.stepManager.steps.findIndex(s => {
+          const answerElement = s.element.querySelector(`[data-answer="${skipTo}"]`);
+          return answerElement !== null;
+        });
         if (idx >= 0) {
           this.currentIndex = idx;
           this.stepManager.showStep(idx);
