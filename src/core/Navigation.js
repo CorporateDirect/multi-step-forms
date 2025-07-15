@@ -18,59 +18,19 @@ class Navigation {
   }
 
   /**
-   * Creates navigation buttons inside the form if they don't already exist.
+   * Initialize navigation without creating buttons - relies on existing Webflow elements
    */
   createButtons() {
-    // Container
-    this.navContainer = this.form.querySelector('.form-navigation');
-    if (!this.navContainer) {
-      this.navContainer = document.createElement('div');
-      this.navContainer.className = 'form-navigation';
-      this.form.appendChild(this.navContainer);
-    }
-
-    // Previous button
-    this.prevButton = this.navContainer.querySelector('[data-nav="prev"]');
-    if (!this.prevButton) {
-      this.prevButton = document.createElement('button');
-      this.prevButton.type = 'button';
-      this.prevButton.setAttribute('data-nav', 'prev');
-      this.prevButton.textContent = 'Previous';
-      this.navContainer.appendChild(this.prevButton);
-    }
-
-    // Next button (acts as submit on last step)
-    this.nextButton = this.navContainer.querySelector('[data-nav="next"]');
-    if (!this.nextButton) {
-      this.nextButton = document.createElement('button');
-      this.nextButton.type = 'button';
-      this.nextButton.setAttribute('data-nav', 'next');
-      this.nextButton.textContent = 'Next';
-      this.navContainer.appendChild(this.nextButton);
-    }
+    // No automatic button creation - use Webflow native elements only
+    // Navigation handled entirely through data-form attributes in event delegation
   }
 
   /**
-   * Attaches click listeners to navigation buttons.
+   * Attaches click listeners using event delegation for Webflow elements only.
    */
   attachListeners() {
-    this.nextButton.addEventListener('click', (e) => {
-      console.log('Navigation: Next button clicked');
-      const lastIndex = this.stepManager.steps.length - 1;
-      if (this.currentIndex < lastIndex) {
-        e.preventDefault();
-        this.handleNext();
-      } // else allow default submit on last step
-    });
-
-    this.prevButton.addEventListener('click', (e) => {
-      console.log('Navigation: Previous button clicked');
-      if (this.currentIndex > 0) {
-        e.preventDefault();
-        this.handlePrevious();
-      }
-    });
-
+    // Removed auto-generated button listeners - using only Webflow native elements
+    
     // Delegate clicks on elements that use data-form="next-btn" or "back-btn"
     this.form.addEventListener('click', (e) => {
       const el = /** @type {HTMLElement} */ (e.target).closest('[data-form]');
@@ -126,30 +86,19 @@ class Navigation {
   }
 
   /**
-   * Update button visibility and labels according to current step.
+   * No longer needed - Webflow elements handle their own visibility and styling
    */
   updateButtonVisibility() {
-    const lastIndex = this.stepManager.steps.length - 1;
-    // Previous button visibility
-    this.prevButton.style.display = this.currentIndex === 0 ? 'none' : 'inline-block';
-
-    // Next button becomes submit on last step
-    if (this.currentIndex === lastIndex) {
-      this.nextButton.textContent = 'Submit';
-      this.nextButton.type = 'submit';
-    } else {
-      this.nextButton.textContent = 'Next';
-      this.nextButton.type = 'button';
-    }
+    // Navigation visibility handled by Webflow elements and CSS
+    // No auto-generated buttons to manipulate
   }
 
-  /** Trigger shake animation on nav container */
+  /** 
+   * Error feedback through console - no auto-generated nav container to shake
+   */
   triggerErrorShake() {
-    if (!this.navContainer) return;
-    this.navContainer.classList.add('shake');
-    setTimeout(() => {
-      this.navContainer.classList.remove('shake');
-    }, 500);
+    console.warn('Form validation failed - check required fields');
+    // Error styling should be handled by Webflow's native form validation
   }
 }
 
